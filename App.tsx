@@ -1,0 +1,206 @@
+
+import React, { useState, useEffect } from 'react';
+import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { 
+  LayoutDashboard, 
+  Package, 
+  ScanLine, 
+  BarChart3, 
+  Settings, 
+  Mic, 
+  Languages, 
+  Moon, 
+  Sun,
+  User,
+  PlusCircle,
+  TrendingUp,
+  AlertTriangle
+} from 'lucide-react';
+import { Language, UserProfile, Transaction, InventoryItem } from './types';
+import { translations } from './translations';
+import Dashboard from './components/Dashboard';
+import Inventory from './components/Inventory';
+import VisionScan from './components/VisionScan';
+import Reports from './components/Reports';
+import SettingsView from './components/SettingsView';
+import VoiceModal from './components/VoiceModal';
+
+const App: React.FC = () => {
+  const [lang, setLang] = useState<Language>('en');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [user, setUser] = useState<UserProfile>({
+    businessName: "Kishore Kirana Store",
+    ownerName: "Kishore Kumar",
+    subscription: "BASIC",
+    whatsappEnabled: true,
+    theme: 'light'
+  });
+
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const saved = localStorage.getItem('bol_transactions');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => {
+    const saved = localStorage.getItem('bol_inventory');
+    return saved ? JSON.parse(saved) : [
+      { id: '1', name: 'Sugar', quantity: 45, unit: 'kg', category: 'Groceries' },
+      { id: '2', name: 'Milk', quantity: 5, unit: 'L', category: 'Dairy' },
+      { id: '3', name: 'Wheat Flour', quantity: 120, unit: 'kg', category: 'Grains' },
+    ];
+  });
+
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('bol_transactions', JSON.stringify(transactions));
+  }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem('bol_inventory', JSON.stringify(inventory));
+  }, [inventory]);
+
+  const t = translations[lang];
+
+  const toggleLang = () => setLang(prev => prev === 'en' ? 'hi' : 'en');
+  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+
+  const addTransaction = (txn: Omit<Transaction, 'id' | 'date'>) => {
+    const newTxn = {
+      ...txn,
+      id: Math.random().toString(36).substr(2, 9),
+      date: new Date().toISOString()
+    };
+    setTransactions([newTxn, ...transactions]);
+  };
+
+  const updateInventory = (item: string, qty: number, action: 'ADD' | 'REMOVE') => {
+    setInventory(prev => {
+      const existing = prev.find(i => i.name.toLowerCase() === item.toLowerCase());
+      if (existing) {
+        return prev.map(i => i.name.toLowerCase() === item.toLowerCase() 
+          ? { ...i, quantity: action === 'ADD' ? i.quantity + qty : Math.max(0, i.quantity - qty) }
+          : i
+        );
+      } else if (action === 'ADD') {
+        return [...prev, { id: Math.random().toString(36).substr(2, 9), name: item, quantity: qty, unit: 'pcs', category: 'General' }];
+      }
+      return prev;
+    });
+  };
+
+  return (
+    <Router>
+      <div className={`min-h-screen ${theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`}>
+        {/* Sidebar for Desktop */}
+        <div className="fixed left-0 top-0 h-full w-20 lg:w-64 flex flex-col border-r border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 z-50">
+          <div className="p-6 flex items-center gap-3">
+            <div className="bg-blue-600 p-2 rounded-xl text-white">
+              <Package size={24} />
+            </div>
+            <h1 className="font-bold text-xl hidden lg:block">B.O.L</h1>
+          </div>
+          
+          <nav className="flex-1 px-4 space-y-2">
+            <NavLink to="/" icon={<LayoutDashboard size={20} />} label={t.dashboard} />
+            <NavLink to="/inventory" icon={<Package size={20} />} label={t.inventory} />
+            <NavLink to="/scan" icon={<ScanLine size={20} />} label={t.billing} />
+            <NavLink to="/reports" icon={<BarChart3 size={20} />} label={t.reports} />
+            <NavLink to="/settings" icon={<Settings size={20} />} label={t.settings} />
+          </nav>
+
+          <div className="p-4 border-t border-slate-200 dark:border-slate-700 space-y-4">
+            <button onClick={toggleLang} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+              <Languages size={20} className="text-blue-600" />
+              <span className="text-sm font-medium hidden lg:block">{lang === 'en' ? 'हिन्दी' : 'English'}</span>
+            </button>
+            <div className="flex items-center gap-3 p-3 lg:px-4">
+               <User size={20} className="text-slate-400" />
+               <div className="hidden lg:block">
+                 <p className="text-xs font-bold text-blue-600">{user.subscription}</p>
+                 <p className="text-sm font-medium truncate">{user.ownerName}</p>
+               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <main className="pl-20 lg:pl-64 min-h-screen pb-24">
+          <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-slate-200 dark:border-slate-700">
+             <div className="flex flex-col">
+               <h2 className="text-lg font-bold">{t.appName}</h2>
+               <p className="text-xs text-slate-500">{t.tagline}</p>
+             </div>
+             <div className="flex items-center gap-4">
+               <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+                 {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+               </button>
+               <button onClick={() => setIsVoiceActive(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full flex items-center gap-2 font-semibold shadow-lg shadow-blue-500/30 transition-all active:scale-95">
+                 <Mic size={18} />
+                 <span className="hidden md:inline">{t.startListening}</span>
+               </button>
+             </div>
+          </header>
+
+          <div className="p-6 max-w-7xl mx-auto">
+            <Routes>
+              <Route path="/" element={<Dashboard t={t} transactions={transactions} inventory={inventory} />} />
+              <Route path="/inventory" element={<Inventory t={t} inventory={inventory} onUpdate={updateInventory} />} />
+              <Route path="/scan" element={<VisionScan t={t} onAddBatch={addTransaction} />} />
+              <Route path="/reports" element={<Reports t={t} transactions={transactions} />} />
+              <Route path="/settings" element={<SettingsView t={t} user={user} onUpdateUser={setUser} />} />
+            </Routes>
+          </div>
+        </main>
+
+        {/* Voice Command Modal Overlay */}
+        {isVoiceActive && (
+          <VoiceModal 
+            t={t} 
+            lang={lang}
+            onClose={() => setIsVoiceActive(false)} 
+            onIntent={(intent) => {
+              // Handle Intent
+              if (intent.action === 'ADD_STOCK' && intent.item && intent.quantity) {
+                updateInventory(intent.item, intent.quantity, 'ADD');
+              } else if (intent.action === 'REMOVE_STOCK' && intent.item && intent.quantity) {
+                updateInventory(intent.item, intent.quantity, 'REMOVE');
+              } else if (intent.action === 'RECORD_SALE' && intent.amount) {
+                addTransaction({
+                  type: 'INCOME',
+                  category: 'Sales',
+                  item: intent.item || 'Generic Item',
+                  amount: intent.amount,
+                  source: 'VOICE'
+                });
+              } else if (intent.action === 'RECORD_PAYMENT' && intent.amount) {
+                addTransaction({
+                  type: 'EXPENSE',
+                  category: intent.category || 'Vendor Payment',
+                  item: intent.item || 'Service',
+                  amount: intent.amount,
+                  entity: intent.entity,
+                  source: 'VOICE'
+                });
+              }
+              setIsVoiceActive(false);
+            }}
+          />
+        )}
+      </div>
+    </Router>
+  );
+};
+
+const NavLink: React.FC<{ to: string, icon: React.ReactNode, label: string }> = ({ to, icon, label }) => {
+  const location = useLocation();
+  const isActive = location.pathname === to;
+  return (
+    <Link to={to} className={`flex items-center gap-4 p-3 rounded-xl transition-all ${isActive ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
+      {icon}
+      <span className="text-sm font-semibold hidden lg:block">{label}</span>
+    </Link>
+  );
+};
+
+export default App;

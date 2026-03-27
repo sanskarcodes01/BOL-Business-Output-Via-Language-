@@ -25,7 +25,7 @@ const Inventory: React.FC<Props> = ({ t, inventory, onUpdate }) => {
           </div>
           <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2">
             <Plus size={18} />
-            <span className="hidden sm:inline">Add New</span>
+            <span className="hidden sm:inline">{t.addNew}</span>
           </button>
         </div>
       </div>
@@ -35,10 +35,10 @@ const Inventory: React.FC<Props> = ({ t, inventory, onUpdate }) => {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 text-sm border-b border-slate-200 dark:border-slate-700">
-                <th className="px-6 py-4 font-semibold uppercase tracking-wider">Product Name</th>
-                <th className="px-6 py-4 font-semibold uppercase tracking-wider">Category</th>
-                <th className="px-6 py-4 font-semibold uppercase tracking-wider">In Stock</th>
-                <th className="px-6 py-4 font-semibold uppercase tracking-wider">Action</th>
+                <th className="px-6 py-4 font-semibold uppercase tracking-wider">{t.productName}</th>
+                <th className="px-6 py-4 font-semibold uppercase tracking-wider">{t.category}</th>
+                <th className="px-6 py-4 font-semibold uppercase tracking-wider">{t.inStock}</th>
+                <th className="px-6 py-4 font-semibold uppercase tracking-wider">{t.action}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -58,7 +58,7 @@ const Inventory: React.FC<Props> = ({ t, inventory, onUpdate }) => {
                         {item.quantity} {item.unit}
                       </p>
                       {item.quantity < 10 && (
-                        <span className="bg-red-50 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Low Stock</span>
+                        <span className="bg-red-50 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">{t.lowStockBadge}</span>
                       )}
                     </div>
                   </td>

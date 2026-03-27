@@ -1,12 +1,13 @@
 
 import React from 'react';
-import { Transaction, InventoryItem } from '../types';
+import { Transaction, InventoryItem, LedgerEntry } from '../types';
 import { 
   ArrowUpRight, 
   ArrowDownRight, 
   ShoppingBag, 
   AlertCircle,
-  Clock
+  Clock,
+  BookOpen
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -14,9 +15,10 @@ interface Props {
   t: any;
   transactions: Transaction[];
   inventory: InventoryItem[];
+  ledger: LedgerEntry[];
 }
 
-const Dashboard: React.FC<Props> = ({ t, transactions, inventory }) => {
+const Dashboard: React.FC<Props> = ({ t, transactions, inventory, ledger }) => {
   const totalSales = transactions
     .filter(t => t.type === 'INCOME')
     .reduce((acc, curr) => acc + curr.amount, 0);
@@ -26,6 +28,10 @@ const Dashboard: React.FC<Props> = ({ t, transactions, inventory }) => {
     .reduce((acc, curr) => acc + curr.amount, 0);
 
   const lowStock = inventory.filter(i => i.quantity < 10);
+
+  const totalGave = ledger.filter(l => l.type === 'GAVE' && l.status === 'PENDING').reduce((acc, curr) => acc + curr.amount, 0);
+  const totalGot = ledger.filter(l => l.type === 'GOT' && l.status === 'PENDING').reduce((acc, curr) => acc + curr.amount, 0);
+  const netBalance = totalGave - totalGot;
 
   // Group transactions for the chart
   const chartData = transactions.slice(0, 7).reverse().map(txn => ({
@@ -57,23 +63,22 @@ const Dashboard: React.FC<Props> = ({ t, transactions, inventory }) => {
           color="orange" 
           icon={<AlertCircle />} 
         />
-        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-3xl text-white shadow-xl">
-           <p className="text-indigo-100 text-sm font-medium">B.O.L Credit Score</p>
-           <h3 className="text-3xl font-bold mt-1">742</h3>
-           <p className="text-xs text-indigo-200 mt-2">Unlock business loans up to ₹5 Lakh</p>
-           <button className="mt-4 bg-white/20 hover:bg-white/30 text-white text-xs px-4 py-2 rounded-full font-bold transition-all">
-             Check Offers
-           </button>
-        </div>
+        <StatCard 
+          title={t.netBalance} 
+          value={`₹${Math.abs(netBalance).toLocaleString()}`} 
+          trend={netBalance >= 0 ? t.youGot : t.youGave} 
+          color={netBalance >= 0 ? "green" : "red"} 
+          icon={<BookOpen />} 
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-lg">Sales Activity</h3>
+            <h3 className="font-bold text-lg">{t.salesActivity}</h3>
             <select className="bg-slate-100 dark:bg-slate-700 border-none rounded-lg text-xs font-semibold px-3 py-1.5 outline-none">
-              <option>Last 7 Days</option>
-              <option>Monthly</option>
+              <option>{t.last7Days}</option>
+              <option>{t.monthly}</option>
             </select>
           </div>
           <div className="h-64">
@@ -116,10 +121,10 @@ const Dashboard: React.FC<Props> = ({ t, transactions, inventory }) => {
                 </p>
               </div>
             ))}
-            {transactions.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No transactions yet</p>}
+            {transactions.length === 0 && <p className="text-sm text-slate-400 text-center py-8">{t.noTransactions}</p>}
           </div>
           <button className="mt-6 w-full py-3 text-sm font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all">
-            View All History
+            {t.viewAllHistory}
           </button>
         </div>
       </div>

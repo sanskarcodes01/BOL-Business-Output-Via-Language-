@@ -1,5 +1,5 @@
 
-export type Language = 'en' | 'hi';
+export type Language = 'en' | 'hi' | 'gu' | 'pa';
 
 export interface Transaction {
   id: string;
@@ -28,12 +28,24 @@ export interface UserProfile {
   theme: 'light' | 'dark';
 }
 
+export interface LedgerEntry {
+  id: string;
+  date: string;
+  customerName: string;
+  amount: number;
+  type: 'GAVE' | 'GOT'; // GAVE = You lent money (Credit/Udhaar given), GOT = You received money (Debt/Advance)
+  status: 'PENDING' | 'SETTLED';
+  notes?: string;
+}
+
 export interface ParsedIntent {
-  action: 'ADD_STOCK' | 'REMOVE_STOCK' | 'RECORD_SALE' | 'RECORD_PAYMENT' | 'UNKNOWN';
+  action: 'ADD_STOCK' | 'REMOVE_STOCK' | 'RECORD_SALE' | 'RECORD_PAYMENT' | 'UPDATE_PROFILE' | 'UNKNOWN';
   item?: string;
   amount?: number;
   quantity?: number;
   unit?: string;
   entity?: string;
   category?: string;
+  businessName?: string;
+  ownerName?: string;
 }

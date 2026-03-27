@@ -7,24 +7,30 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 export const parseVoiceIntent = async (text: string): Promise<ParsedIntent> => {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Analyze the following business command (Bilingual English/Hindi/Hinglish) and extract the intent in JSON format.
+    contents: `Analyze the following business command (Multilingual: English, Hindi, Gujarati, Punjabi, Hinglish) and extract the intent in JSON format.
     Command: "${text}"
     Example inputs:
     - "Add 10kg sugar to stock" -> { "action": "ADD_STOCK", "item": "sugar", "quantity": 10, "unit": "kg" }
     - "रामू को 200 रुपये दिए" -> { "action": "RECORD_PAYMENT", "entity": "Ramu", "amount": 200, "category": "Salary/Labor" }
-    - "Sold milk for 50 rupees" -> { "action": "RECORD_SALE", "item": "milk", "amount": 50 }`,
+    - "Sold milk for 50 rupees" -> { "action": "RECORD_SALE", "item": "milk", "amount": 50 }
+    - "Change business name to Gupta General Store" -> { "action": "UPDATE_PROFILE", "businessName": "Gupta General Store" }
+    - "Set owner name as Rajesh Kumar" -> { "action": "UPDATE_PROFILE", "ownerName": "Rajesh Kumar" }
+    - "૧૦ કિલો ખાંડ ઉમેરો" -> { "action": "ADD_STOCK", "item": "sugar", "quantity": 10, "unit": "kg" }
+    - "ਰਾਮੂ ਨੂੰ ੫੦੦ ਰੁਪਏ ਦਿੱਤੇ" -> { "action": "RECORD_PAYMENT", "entity": "Ramu", "amount": 500, "category": "Salary/Labor" }`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          action: { type: Type.STRING, enum: ["ADD_STOCK", "REMOVE_STOCK", "RECORD_SALE", "RECORD_PAYMENT", "UNKNOWN"] },
+          action: { type: Type.STRING, enum: ["ADD_STOCK", "REMOVE_STOCK", "RECORD_SALE", "RECORD_PAYMENT", "UPDATE_PROFILE", "UNKNOWN"] },
           item: { type: Type.STRING },
           amount: { type: Type.NUMBER },
           quantity: { type: Type.NUMBER },
           unit: { type: Type.STRING },
           entity: { type: Type.STRING },
           category: { type: Type.STRING },
+          businessName: { type: Type.STRING },
+          ownerName: { type: Type.STRING },
         },
         required: ["action"],
       },

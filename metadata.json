@@ -1,5 +1,5 @@
 {
-  "name": "B.O.L (Business Output via Language)",
+  "name": "B.O.L - Business of Language",
   "description": "A bilingual, voice-first command center for Indian MSMEs to manage stock, sales, and accounts with AI-powered intent parsing and bill scanning.",
   "requestFramePermissions": [
     "camera",

@@ -62,11 +62,11 @@ const VisionScan: React.FC<Props> = ({ t, onAddBatch }) => {
           </div>
           <div className="text-center">
             <h3 className="font-bold text-lg">{t.uploadBill}</h3>
-            <p className="text-slate-500">Supported formats: JPG, PNG, PDF</p>
+            <p className="text-slate-500">{t.supportedFormats}</p>
           </div>
           <label className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold cursor-pointer shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2">
             <Upload size={18} />
-            <span>Select File</span>
+            <span>{t.selectFile}</span>
             <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
           </label>
         </div>
@@ -77,7 +77,7 @@ const VisionScan: React.FC<Props> = ({ t, onAddBatch }) => {
                <img src={imagePreview} alt="Bill Preview" className="w-full h-full object-contain" />
             </div>
             <button onClick={() => setImagePreview(null)} className="w-full py-3 bg-slate-200 dark:bg-slate-700 font-bold rounded-xl hover:bg-slate-300 transition-all">
-              Discard and Rescan
+              {t.discardRescan}
             </button>
           </div>
 
@@ -85,7 +85,7 @@ const VisionScan: React.FC<Props> = ({ t, onAddBatch }) => {
             <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm min-h-[400px]">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-bold text-lg">{t.verifyData}</h3>
-                <span className="bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1 rounded-full">AI Extracted</span>
+                <span className="bg-blue-50 text-blue-600 text-xs font-bold px-3 py-1 rounded-full">{t.aiExtracted}</span>
               </div>
 
               {isScanning ? (
@@ -98,10 +98,10 @@ const VisionScan: React.FC<Props> = ({ t, onAddBatch }) => {
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="text-slate-400 border-b border-slate-100 dark:border-slate-700">
-                        <th className="pb-3 font-medium">Item</th>
-                        <th className="pb-3 font-medium">Qty</th>
-                        <th className="pb-3 font-medium">Total</th>
-                        <th className="pb-3 font-medium">Action</th>
+                        <th className="pb-3 font-medium">{t.item}</th>
+                        <th className="pb-3 font-medium">{t.qty}</th>
+                        <th className="pb-3 font-medium">{t.total}</th>
+                        <th className="pb-3 font-medium">{t.action}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -123,14 +123,14 @@ const VisionScan: React.FC<Props> = ({ t, onAddBatch }) => {
                   {scannedItems.length === 0 && (
                     <div className="flex flex-col items-center py-12 text-slate-400">
                       <AlertCircle size={32} className="mb-2" />
-                      <p>No items detected. Try another photo.</p>
+                      <p>{t.noItemsDetected}</p>
                     </div>
                   )}
 
                   {scannedItems.length > 0 && (
                     <div className="pt-6 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
                        <div>
-                         <p className="text-slate-400 text-xs">Grand Total</p>
+                         <p className="text-slate-400 text-xs">{t.grandTotal}</p>
                          <p className="text-2xl font-bold">₹{scannedItems.reduce((acc, curr) => acc + (curr.total || (curr.price * curr.quantity)), 0).toLocaleString()}</p>
                        </div>
                        <button onClick={handleConfirmAll} className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-2xl font-bold shadow-xl shadow-green-500/20 transition-all flex items-center gap-2">

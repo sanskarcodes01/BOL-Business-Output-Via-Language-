@@ -24,7 +24,13 @@ const VoiceModal: React.FC<Props> = ({ t, lang, onClose, onIntent }) => {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = lang === 'hi' ? 'hi-IN' : 'en-IN';
+      
+      let langCode = 'en-IN';
+      if (lang === 'hi') langCode = 'hi-IN';
+      else if (lang === 'gu') langCode = 'gu-IN';
+      else if (lang === 'pa') langCode = 'pa-IN';
+      
+      recognitionRef.current.lang = langCode;
 
       recognitionRef.current.onstart = () => setIsListening(true);
       recognitionRef.current.onend = () => setIsListening(false);
@@ -81,7 +87,7 @@ const VoiceModal: React.FC<Props> = ({ t, lang, onClose, onIntent }) => {
             {transcript ? (
               <p className="text-xl font-medium px-4">"{transcript}"</p>
             ) : (
-              <p className="text-slate-400 animate-pulse">{isListening ? 'Listening...' : 'Thinking...'}</p>
+              <p className="text-slate-400 animate-pulse">{isListening ? t.listening : t.thinking}</p>
             )}
             {isProcessing && (
               <p className="text-blue-600 font-bold mt-4 flex items-center justify-center gap-2">

@@ -1,0 +1,10 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" fill="#050a14" />
+  <text x="20" y="120" font-family="Arial, sans-serif" font-size="80" font-weight="bold" fill="white">B</text>
+  <g transform="translate(100, 100)">
+    <circle r="35" fill="none" stroke="#ff4e00" stroke-width="15" />
+    <path d="M -35 0 A 35 35 0 0 1 0 -35" fill="none" stroke="#00a8ff" stroke-width="15" />
+    <path d="M 0 35 A 35 35 0 0 1 -35 0" fill="none" stroke="#ff9000" stroke-width="15" />
+  </g>
+  <text x="145" y="120" font-family="Arial, sans-serif" font-size="80" font-weight="bold" fill="white">L</text>
+</svg>

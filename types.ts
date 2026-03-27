@@ -32,6 +32,7 @@ export interface LedgerEntry {
   id: string;
   date: string;
   customerName: string;
+  phoneNumber?: string;
   amount: number;
   type: 'GAVE' | 'GOT'; // GAVE = You lent money (Credit/Udhaar given), GOT = You received money (Debt/Advance)
   status: 'PENDING' | 'SETTLED';

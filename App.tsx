@@ -15,7 +15,8 @@ import {
   PlusCircle,
   TrendingUp,
   AlertTriangle,
-  BookOpen
+  BookOpen,
+  MessageSquare
 } from 'lucide-react';
 import { Language, UserProfile, Transaction, InventoryItem, LedgerEntry } from './types';
 import { translations } from './translations';
@@ -27,6 +28,7 @@ import SettingsView from './components/SettingsView';
 import VoiceModal from './components/VoiceModal';
 import Ledger from './components/Ledger';
 import LandingPage from './components/LandingPage';
+import WhatsAppConnect from './components/WhatsAppConnect';
 
 const App: React.FC = () => {
   const [lang, setLang] = useState<Language>(() => {
@@ -225,6 +227,7 @@ const App: React.FC = () => {
             <NavLink to="/inventory" icon={<Package size={20} />} label={t.inventory} />
             <NavLink to="/scan" icon={<ScanLine size={20} />} label={t.billing} />
             <NavLink to="/ledger" icon={<BookOpen size={20} />} label={t.ledger} />
+            <NavLink to="/whatsapp" icon={<MessageSquare size={20} />} label={t.whatsappLink || 'WhatsApp Link'} />
             <NavLink to="/reports" icon={<BarChart3 size={20} />} label={t.reports} />
             <NavLink to="/settings" icon={<Settings size={20} />} label={t.settings} />
           </nav>
@@ -276,6 +279,7 @@ const App: React.FC = () => {
               <Route path="/inventory" element={<Inventory t={t} inventory={inventory} onUpdate={updateInventory} />} />
               <Route path="/scan" element={<VisionScan t={t} onAddBatch={addTransaction} />} />
               <Route path="/ledger" element={<Ledger t={t} ledger={ledger} onAddEntry={addLedgerEntry} onSettleEntry={settleLedgerEntry} onEditEntry={editLedgerEntry} />} />
+              <Route path="/whatsapp" element={<WhatsAppConnect t={t} />} />
               <Route path="/reports" element={<Reports t={t} transactions={transactions} />} />
               <Route path="/settings" element={<SettingsView t={t} user={user} onUpdateUser={setUser} lang={lang} setLang={setLang} />} />
             </Routes>

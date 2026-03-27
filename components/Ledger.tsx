@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, ArrowUpRight, ArrowDownLeft, Search, CheckCircle2, Clock } from 'lucide-react';
+import { Plus, ArrowUpRight, ArrowDownLeft, Search, CheckCircle2, Clock, MessageSquare } from 'lucide-react';
 import { LedgerEntry } from '../types';
+import { sendWhatsAppMessage } from '../services/whatsappService';
 
 interface Props {
   t: any;
@@ -14,8 +15,10 @@ const Ledger: React.FC<Props> = ({ t, ledger, onAddEntry, onSettleEntry, onEditE
   const [isAdding, setIsAdding] = useState(false);
   const [editingEntry, setEditingEntry] = useState<LedgerEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [whatsappStatus, setWhatsappStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [newEntry, setNewEntry] = useState({
     customerName: '',
+    phoneNumber: '',
     amount: '',
     type: 'GAVE' as 'GAVE' | 'GOT',
     notes: ''
@@ -52,17 +55,44 @@ const Ledger: React.FC<Props> = ({ t, ledger, onAddEntry, onSettleEntry, onEditE
     
     onAddEntry({
       customerName: newEntry.customerName,
+      phoneNumber: newEntry.phoneNumber,
       amount: Number(newEntry.amount),
       type: newEntry.type,
       notes: newEntry.notes
     });
     
-    setNewEntry({ customerName: '', amount: '', type: 'GAVE', notes: '' });
+    setNewEntry({ customerName: '', phoneNumber: '', amount: '', type: 'GAVE', notes: '' });
     setIsAdding(false);
+  };
+
+  const handleSendWhatsApp = async (entry: LedgerEntry) => {
+    if (!entry.phoneNumber) {
+      setWhatsappStatus({ type: 'error', message: 'No phone number provided.' });
+      return;
+    }
+
+    const message = `B.O.L Receipt\n\nCustomer: ${entry.customerName}\nAmount: ₹${entry.amount}\nType: ${entry.type === 'GAVE' ? 'Udhaar (Credit)' : 'Advance (Debit)'}\nDate: ${new Date(entry.date).toLocaleDateString()}\nNotes: ${entry.notes || '-'}\n\nThank you for your business!`;
+
+    try {
+      await sendWhatsAppMessage(entry.phoneNumber, message);
+      setWhatsappStatus({ type: 'success', message: t.whatsappSent });
+      setTimeout(() => setWhatsappStatus(null), 3000);
+    } catch (error: any) {
+      setWhatsappStatus({ type: 'error', message: t.whatsappError });
+      setTimeout(() => setWhatsappStatus(null), 3000);
+    }
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {whatsappStatus && (
+        <div className={`fixed top-4 right-4 z-[100] p-4 rounded-xl shadow-lg border animate-in slide-in-from-right duration-300 ${
+          whatsappStatus.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'
+        }`}>
+          {whatsappStatus.message}
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold">{t.ledger}</h1>
@@ -109,6 +139,13 @@ const Ledger: React.FC<Props> = ({ t, ledger, onAddEntry, onSettleEntry, onEditE
               onChange={e => setNewEntry({...newEntry, customerName: e.target.value})}
               className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
               required
+            />
+            <input 
+              type="text" 
+              placeholder={t.phoneNumber}
+              value={newEntry.phoneNumber}
+              onChange={e => setNewEntry({...newEntry, phoneNumber: e.target.value})}
+              className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
             />
             <input 
               type="number" 
@@ -249,9 +286,17 @@ const Ledger: React.FC<Props> = ({ t, ledger, onAddEntry, onSettleEntry, onEditE
                     )}
                     <button 
                       onClick={() => setEditingEntry(entry)}
-                      className="text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+                      className="text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 mr-3"
                     >
                       {t.edit || 'Edit'}
+                    </button>
+                    <button 
+                      onClick={() => handleSendWhatsApp(entry)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:text-green-400 rounded-lg text-xs font-bold transition-colors border border-green-100 dark:border-green-900/30"
+                      title={t.sendWhatsApp}
+                    >
+                      <MessageSquare size={14} />
+                      {t.sendWhatsApp || 'Send Receipt'}
                     </button>
                   </td>
                 </tr>
@@ -284,6 +329,15 @@ const Ledger: React.FC<Props> = ({ t, ledger, onAddEntry, onSettleEntry, onEditE
                   onChange={e => setEditingEntry({...editingEntry, customerName: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
                   required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.phoneNumber}</label>
+                <input 
+                  type="text" 
+                  value={editingEntry.phoneNumber || ''}
+                  onChange={e => setEditingEntry({...editingEntry, phoneNumber: e.target.value})}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>

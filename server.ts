@@ -31,70 +31,6 @@ async function startServer() {
 
   app.use(express.json());
 
-  // --- WhatsApp Multi-Device (Baileys) Setup ---
-  const AUTH_FOLDER = path.join(process.cwd(), "whatsapp_auth");
-  if (!fs.existsSync(AUTH_FOLDER)) fs.mkdirSync(AUTH_FOLDER);
-
-  const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
-  const { version } = await fetchLatestBaileysVersion();
-
-  let sock: any = null;
-  let qrCodeData: string | null = null;
-  let connectionStatus: "connecting" | "open" | "close" | "qr" = "connecting";
-
-  const connectToWhatsApp = async () => {
-    sock = makeWASocket({
-      version,
-      printQRInTerminal: false,
-      auth: {
-        creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
-      },
-      browser: Browsers.macOS("Desktop"),
-      logger: pino({ level: "silent" }),
-    });
-
-    sock.ev.on("connection.update", async (update: any) => {
-      const { connection, lastDisconnect, qr } = update;
-
-      if (qr) {
-        qrCodeData = await QRCode.toDataURL(qr);
-        connectionStatus = "qr";
-        io.emit("whatsapp:qr", qrCodeData);
-      }
-
-      if (connection === "close") {
-        const shouldReconnect = (lastDisconnect?.error as any)?.output?.statusCode !== DisconnectReason.loggedOut;
-        connectionStatus = "close";
-        qrCodeData = null;
-        io.emit("whatsapp:status", "disconnected");
-        if (shouldReconnect) connectToWhatsApp();
-      } else if (connection === "open") {
-        connectionStatus = "open";
-        qrCodeData = null;
-        io.emit("whatsapp:status", "connected");
-        console.log("WhatsApp connection opened!");
-      }
-    });
-
-    sock.ev.on("creds.update", saveCreds);
-
-    // Listen for incoming messages (optional: can be used for "get data through whatsapp")
-    sock.ev.on("messages.upsert", async (m: any) => {
-      // console.log(JSON.stringify(m, undefined, 2));
-      // This is where we could parse incoming messages to update the ledger!
-    });
-  };
-
-  connectToWhatsApp();
-
-  // Socket.io Events
-  io.on("connection", (socket) => {
-    console.log("Client connected to socket:", socket.id);
-    if (qrCodeData) socket.emit("whatsapp:qr", qrCodeData);
-    socket.emit("whatsapp:status", connectionStatus === "open" ? "connected" : connectionStatus === "qr" ? "qr" : "disconnected");
-  });
-
   // --- Data Persistence (Simple JSON Database) ---
   const DB_FILE = path.join(process.cwd(), "db.json");
   const getInitialData = () => ({
@@ -114,8 +50,13 @@ async function startServer() {
     }
   });
 
+  // Ensure DB exists early
   if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(getInitialData(), null, 2));
+    try {
+      fs.writeFileSync(DB_FILE, JSON.stringify(getInitialData(), null, 2));
+    } catch (err) {
+      console.error("Failed to initialize DB file:", err);
+    }
   }
 
   const readDB = () => {
@@ -139,6 +80,93 @@ async function startServer() {
     }
   };
 
+  // --- WhatsApp Background Initialization ---
+  let sock: any = null;
+  let qrCodeData: string | null = null;
+  let connectionStatus: "connecting" | "open" | "close" | "qr" = "connecting";
+
+  const initializeWhatsApp = async () => {
+    const AUTH_FOLDER = path.join("/tmp", "whatsapp_auth");
+    if (!fs.existsSync(AUTH_FOLDER)) {
+      try {
+        fs.mkdirSync(AUTH_FOLDER, { recursive: true });
+      } catch (err) {
+        console.error("Failed to create auth folder:", err);
+      }
+    }
+
+    let state: any, saveCreds: any;
+    try {
+      const auth = await useMultiFileAuthState(AUTH_FOLDER);
+      state = auth.state;
+      saveCreds = auth.saveCreds;
+    } catch (err) {
+      console.error("Failed to initialize WhatsApp auth:", err);
+      state = { creds: {}, keys: {} };
+      saveCreds = () => {};
+    }
+
+    let version: any;
+    try {
+      const latest = await fetchLatestBaileysVersion();
+      version = latest.version;
+    } catch (err) {
+      version = [2, 2318, 11];
+    }
+
+    const connectToWhatsApp = async () => {
+      try {
+        sock = makeWASocket({
+          version,
+          printQRInTerminal: false,
+          auth: {
+            creds: state.creds,
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
+          },
+          browser: Browsers.macOS("Desktop"),
+          logger: pino({ level: "silent" }),
+        });
+
+        sock.ev.on("connection.update", async (update: any) => {
+          const { connection, lastDisconnect, qr } = update;
+          if (qr) {
+            qrCodeData = await QRCode.toDataURL(qr);
+            connectionStatus = "qr";
+            io.emit("whatsapp:qr", qrCodeData);
+          }
+          if (connection === "close") {
+            const shouldReconnect = (lastDisconnect?.error as any)?.output?.statusCode !== DisconnectReason.loggedOut;
+            connectionStatus = "close";
+            qrCodeData = null;
+            io.emit("whatsapp:status", "disconnected");
+            if (shouldReconnect) connectToWhatsApp();
+          } else if (connection === "open") {
+            connectionStatus = "open";
+            qrCodeData = null;
+            io.emit("whatsapp:status", "connected");
+            console.log("WhatsApp connection opened!");
+          }
+        });
+
+        sock.ev.on("creds.update", saveCreds);
+      } catch (err) {
+        console.error("WhatsApp connection error:", err);
+      }
+    };
+
+    connectToWhatsApp();
+  };
+
+  // Start WhatsApp in background
+  initializeWhatsApp().catch(err => console.error("WhatsApp Init Error:", err));
+
+  // Socket.io Events
+  io.on("connection", (socket) => {
+    console.log("Client connected to socket:", socket.id);
+    if (qrCodeData) socket.emit("whatsapp:qr", qrCodeData);
+    socket.emit("whatsapp:status", connectionStatus === "open" ? "connected" : connectionStatus === "qr" ? "qr" : "disconnected");
+  });
+
   app.get("/api/data", (req, res) => {
     res.json(readDB());
   });
@@ -155,6 +183,10 @@ async function startServer() {
   // WhatsApp API Endpoints
   app.post("/api/whatsapp/send", async (req, res) => {
     const { to, message } = req.body;
+
+    if (!to || !message) {
+      return res.status(400).json({ error: "Missing 'to' or 'message' field." });
+    }
 
     // Try Linked Account first
     if (connectionStatus === "open" && sock) {
@@ -225,19 +257,36 @@ async function startServer() {
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
-    const { createServer: createViteServer } = await import("vite");
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+  const isProd = process.env.NODE_ENV === "production" || fs.existsSync(path.join(process.cwd(), 'dist'));
+
+  if (!isProd) {
+    try {
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } catch (err) {
+      console.warn("Vite not found, falling back to static serving");
+      serveStatic();
+    }
   } else {
+    serveStatic();
+  }
+
+  function serveStatic() {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.get('*all', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    } else {
+      app.get('*all', (req, res) => {
+        res.status(404).send("Production build not found. Run 'npm run build'.");
+      });
+    }
   }
 
   httpServer.listen(PORT, "0.0.0.0", () => {

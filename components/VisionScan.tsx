@@ -23,9 +23,15 @@ const VisionScan: React.FC<Props> = ({ t, onAddBatch }) => {
       const base64 = (reader.result as string).split(',')[1];
       setImagePreview(reader.result as string);
       setIsScanning(true);
-      const items = await parseBillImage(base64);
-      setScannedItems(items);
-      setIsScanning(false);
+      try {
+        const items = await parseBillImage(base64);
+        setScannedItems(items || []);
+      } catch (error) {
+        console.error("Vision Scan Error:", error);
+        setScannedItems([]);
+      } finally {
+        setIsScanning(false);
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -35,6 +41,8 @@ const VisionScan: React.FC<Props> = ({ t, onAddBatch }) => {
   };
 
   const handleConfirmAll = () => {
+    if (scannedItems.length === 0) return;
+    
     scannedItems.forEach(item => {
       onAddBatch({
         type: 'EXPENSE',
@@ -46,7 +54,6 @@ const VisionScan: React.FC<Props> = ({ t, onAddBatch }) => {
     });
     setScannedItems([]);
     setImagePreview(null);
-    alert(t.saveSuccess);
   };
 
   return (

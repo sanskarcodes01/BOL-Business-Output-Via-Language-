@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import { 
   LayoutDashboard, 
   Package, 
@@ -16,7 +17,8 @@ import {
   TrendingUp,
   AlertTriangle,
   BookOpen,
-  MessageSquare
+  MessageSquare,
+  RefreshCw
 } from 'lucide-react';
 import { Language, UserProfile, Transaction, InventoryItem, LedgerEntry } from './types';
 import { translations } from './translations';
@@ -31,79 +33,91 @@ import LandingPage from './components/LandingPage';
 import WhatsAppConnect from './components/WhatsAppConnect';
 
 const App: React.FC = () => {
-  const [lang, setLang] = useState<Language>(() => {
-    const saved = localStorage.getItem('bol_lang');
-    return (saved === 'en' || saved === 'hi' || saved === 'gu' || saved === 'pa') ? (saved as Language) : 'en';
+  const [lang, setLang] = useState<Language>('en');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [user, setUser] = useState<UserProfile>({
+    businessName: "Kishore Kirana Store",
+    ownerName: "Kishore Kumar",
+    subscription: "BASIC",
+    whatsappEnabled: true,
+    theme: 'light'
   });
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const savedTheme = localStorage.getItem('bol_theme');
-    return (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'light';
-  });
-  const [user, setUser] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('bol_user');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...parsed, theme: theme };
-    }
-    return {
-      businessName: "Kishore Kirana Store",
-      ownerName: "Kishore Kumar",
-      subscription: "BASIC",
-      whatsappEnabled: true,
-      theme: theme
-    };
-  });
-
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem('bol_transactions');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [inventory, setInventory] = useState<InventoryItem[]>(() => {
-    const saved = localStorage.getItem('bol_inventory');
-    return saved ? JSON.parse(saved) : [
-      { id: '1', name: 'Sugar', quantity: 45, unit: 'kg', category: 'Groceries' },
-      { id: '2', name: 'Milk', quantity: 5, unit: 'L', category: 'Dairy' },
-      { id: '3', name: 'Wheat Flour', quantity: 120, unit: 'kg', category: 'Grains' },
-    ];
-  });
-
-  const [ledger, setLedger] = useState<LedgerEntry[]>(() => {
-    const saved = localStorage.getItem('bol_ledger');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    const saved = localStorage.getItem('bol_auth');
-    return saved === 'true';
-  });
-
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const socketRef = useRef<any>(null);
+
+  // Initial Data Fetch
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch('/api/data');
+        if (response.ok) {
+          const data = await response.json();
+          setTransactions(data.transactions || []);
+          setInventory(data.inventory || []);
+          setLedger(data.ledger || []);
+          setUser(data.user || user);
+          setTheme(data.user?.theme || 'light');
+        }
+      } catch (error) {
+        console.error("Failed to fetch data from server:", error);
+      }
+    };
+
+    const savedAuth = localStorage.getItem('bol_auth');
+    if (savedAuth === 'true') setIsAuthenticated(true);
+
+    const savedLang = localStorage.getItem('bol_lang');
+    if (savedLang) setLang(savedLang as Language);
+
+    fetchData();
+
+    // Socket Setup for Real-time Updates
+    socketRef.current = io();
+    socketRef.current.on('data:updated', (data: any) => {
+      setTransactions(data.transactions);
+      setInventory(data.inventory);
+      setLedger(data.ledger);
+      setUser(data.user);
+    });
+
+    return () => {
+      if (socketRef.current) socketRef.current.disconnect();
+    };
+  }, []);
+
+  // Sync Data to Server
+  const syncWithServer = async (updates: any) => {
+    if (!isAuthenticated) return;
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/data/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (!response.ok) throw new Error("Sync failed");
+    } catch (error) {
+      console.error("Sync failed:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('bol_theme', theme);
-    setUser(prev => ({ ...prev, theme }));
-  }, [theme]);
-
-  useEffect(() => {
-    localStorage.setItem('bol_user', JSON.stringify(user));
-  }, [user]);
+    if (isAuthenticated && user.theme !== theme) {
+      syncWithServer({ user: { ...user, theme } });
+    }
+  }, [theme, isAuthenticated]);
 
   useEffect(() => {
     localStorage.setItem('bol_lang', lang);
   }, [lang]);
-
-  useEffect(() => {
-    localStorage.setItem('bol_transactions', JSON.stringify(transactions));
-  }, [transactions]);
-
-  useEffect(() => {
-    localStorage.setItem('bol_inventory', JSON.stringify(inventory));
-  }, [inventory]);
-
-  useEffect(() => {
-    localStorage.setItem('bol_ledger', JSON.stringify(ledger));
-  }, [ledger]);
 
   useEffect(() => {
     localStorage.setItem('bol_auth', isAuthenticated.toString());
@@ -113,18 +127,13 @@ const App: React.FC = () => {
 
   const toggleLang = () => {
     setLang(prev => {
-      if (prev === 'en') return 'hi';
-      if (prev === 'hi') return 'gu';
-      if (prev === 'gu') return 'pa';
-      return 'en';
+      const next = prev === 'en' ? 'hi' : prev === 'hi' ? 'gu' : prev === 'gu' ? 'pa' : 'en';
+      return next;
     });
   };
+
   const toggleTheme = () => {
-    setTheme(prev => {
-      const newTheme = prev === 'light' ? 'dark' : 'light';
-      setUser(u => ({ ...u, theme: newTheme }));
-      return newTheme;
-    });
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
   const getLangName = (l: Language) => {
@@ -144,59 +153,79 @@ const App: React.FC = () => {
     }
   };
 
+  const generateId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+  };
+
   const addTransaction = (txn: Omit<Transaction, 'id' | 'date'>) => {
     const newTxn = {
       ...txn,
-      id: Math.random().toString(36).substr(2, 9),
+      id: generateId(),
       date: new Date().toISOString()
     };
-    setTransactions([newTxn, ...transactions]);
+    const updated = [newTxn, ...transactions];
+    setTransactions(updated);
+    syncWithServer({ transactions: updated });
   };
 
   const updateInventory = (item: string, qty: number, action: 'ADD' | 'REMOVE') => {
-    setInventory(prev => {
-      const existing = prev.find(i => i.name.toLowerCase() === item.toLowerCase());
-      if (existing) {
-        return prev.map(i => i.name.toLowerCase() === item.toLowerCase() 
-          ? { ...i, quantity: action === 'ADD' ? i.quantity + qty : Math.max(0, i.quantity - qty) }
-          : i
-        );
-      } else if (action === 'ADD') {
-        return [...prev, { id: Math.random().toString(36).substr(2, 9), name: item, quantity: qty, unit: 'pcs', category: 'General' }];
-      }
-      return prev;
-    });
+    let updated: InventoryItem[] = [];
+    const existing = inventory.find(i => i.name.toLowerCase() === item.toLowerCase());
+    if (existing) {
+      updated = inventory.map(i => i.name.toLowerCase() === item.toLowerCase() 
+        ? { ...i, quantity: action === 'ADD' ? i.quantity + qty : Math.max(0, i.quantity - qty) }
+        : i
+      );
+    } else if (action === 'ADD') {
+      updated = [...inventory, { id: generateId(), name: item, quantity: qty, unit: 'pcs', category: 'General' }];
+    } else {
+      updated = inventory;
+    }
+    setInventory(updated);
+    syncWithServer({ inventory: updated });
   };
 
   const addLedgerEntry = (entry: Omit<LedgerEntry, 'id' | 'date' | 'status'>) => {
     const newEntry: LedgerEntry = {
       ...entry,
-      id: Math.random().toString(36).substr(2, 9),
+      id: generateId(),
       date: new Date().toISOString(),
       status: 'PENDING'
     };
-    setLedger([newEntry, ...ledger]);
+    const updated = [newEntry, ...ledger];
+    setLedger(updated);
+    syncWithServer({ ledger: updated });
   };
 
   const settleLedgerEntry = (id: string) => {
-    setLedger(prev => prev.map(l => l.id === id ? { ...l, status: 'SETTLED' } : l));
+    const updated = ledger.map(l => l.id === id ? { ...l, status: 'SETTLED' } : l);
+    setLedger(updated);
+    syncWithServer({ ledger: updated });
   };
 
   const editLedgerEntry = (updatedEntry: LedgerEntry) => {
-    setLedger(prev => prev.map(l => l.id === updatedEntry.id ? updatedEntry : l));
+    const updated = ledger.map(l => l.id === updatedEntry.id ? updatedEntry : l);
+    setLedger(updated);
+    syncWithServer({ ledger: updated });
   };
 
   const handleLogin = (name: string, business: string) => {
-    setUser(prev => ({
-      ...prev,
-      ownerName: name,
-      businessName: business
-    }));
+    const updatedUser = { ...user, ownerName: name, businessName: business };
+    setUser(updatedUser);
     setIsAuthenticated(true);
+    syncWithServer({ user: updatedUser });
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+  };
+
+  const onUpdateUser = (u: UserProfile) => {
+    setUser(u);
+    syncWithServer({ user: u });
   };
 
   if (!isAuthenticated) {
@@ -259,7 +288,10 @@ const App: React.FC = () => {
         <main className="pl-20 lg:pl-64 min-h-screen pb-24">
           <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-slate-200 dark:border-slate-700">
              <div className="flex flex-col">
-               <h2 className="text-lg font-bold">{t.appName}</h2>
+               <div className="flex items-center gap-2">
+                 <h2 className="text-lg font-bold">{t.appName}</h2>
+                 {isSyncing && <RefreshCw size={12} className="text-blue-500 animate-spin" />}
+               </div>
                <p className="text-xs text-slate-500">{t.tagline}</p>
              </div>
              <div className="flex items-center gap-4">
@@ -281,7 +313,7 @@ const App: React.FC = () => {
               <Route path="/ledger" element={<Ledger t={t} ledger={ledger} onAddEntry={addLedgerEntry} onSettleEntry={settleLedgerEntry} onEditEntry={editLedgerEntry} />} />
               <Route path="/whatsapp" element={<WhatsAppConnect t={t} />} />
               <Route path="/reports" element={<Reports t={t} transactions={transactions} />} />
-              <Route path="/settings" element={<SettingsView t={t} user={user} onUpdateUser={setUser} lang={lang} setLang={setLang} />} />
+              <Route path="/settings" element={<SettingsView t={t} user={user} onUpdateUser={onUpdateUser} lang={lang} setLang={setLang} />} />
             </Routes>
           </div>
         </main>

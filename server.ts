@@ -95,6 +95,63 @@ async function startServer() {
     socket.emit("whatsapp:status", connectionStatus === "open" ? "connected" : connectionStatus === "qr" ? "qr" : "disconnected");
   });
 
+  // --- Data Persistence (Simple JSON Database) ---
+  const DB_FILE = path.join(process.cwd(), "db.json");
+  const getInitialData = () => ({
+    transactions: [],
+    inventory: [
+      { id: '1', name: 'Sugar', quantity: 45, unit: 'kg', category: 'Groceries' },
+      { id: '2', name: 'Milk', quantity: 5, unit: 'L', category: 'Dairy' },
+      { id: '3', name: 'Wheat Flour', quantity: 120, unit: 'kg', category: 'Grains' },
+    ],
+    ledger: [],
+    user: {
+      businessName: "Kishore Kirana Store",
+      ownerName: "Kishore Kumar",
+      subscription: "BASIC",
+      whatsappEnabled: true,
+      theme: "light"
+    }
+  });
+
+  if (!fs.existsSync(DB_FILE)) {
+    fs.writeFileSync(DB_FILE, JSON.stringify(getInitialData(), null, 2));
+  }
+
+  const readDB = () => {
+    try {
+      if (!fs.existsSync(DB_FILE)) return getInitialData();
+      const content = fs.readFileSync(DB_FILE, "utf-8");
+      return content ? JSON.parse(content) : getInitialData();
+    } catch (error) {
+      console.error("Error reading database:", error);
+      return getInitialData();
+    }
+  };
+
+  const writeDB = (data: any) => {
+    try {
+      const tempFile = `${DB_FILE}.tmp`;
+      fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
+      fs.renameSync(tempFile, DB_FILE);
+    } catch (error) {
+      console.error("Error writing database:", error);
+    }
+  };
+
+  app.get("/api/data", (req, res) => {
+    res.json(readDB());
+  });
+
+  app.post("/api/data/sync", (req, res) => {
+    const newData = req.body;
+    const currentData = readDB();
+    const mergedData = { ...currentData, ...newData };
+    writeDB(mergedData);
+    res.json({ success: true, data: mergedData });
+    io.emit("data:updated", mergedData); // Notify other clients
+  });
+
   // WhatsApp API Endpoints
   app.post("/api/whatsapp/send", async (req, res) => {
     const { to, message } = req.body;
@@ -161,6 +218,12 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  // Global Error Handler
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("Unhandled Error:", err);
+    res.status(500).json({ error: "Internal Server Error", message: err.message });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
@@ -172,7 +235,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*all', (req, res) => {
+    app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
